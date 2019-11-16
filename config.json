@@ -1,0 +1,6 @@
+{
+    "logDir": "/var/log/evlogger/",
+    "serialBMSPath": "/dev/ttyUSB0",
+    "serialEVCCPath": "dev/ttyUSB1",
+    "serialBaud": 9600
+}
