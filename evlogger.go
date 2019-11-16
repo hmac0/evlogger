@@ -1,16 +1,32 @@
 package main
 
 import (
+	"github.com/spf13/viper"
+	"flag"
 	"fmt"
 	"log"
 	"time"
+	"os"
 
 	"github.com/tarm/serial"
 	"github.com/golang/glog"
 )
 
+// Version holds the version and build commit hash, set at build time.
+var Version string
+
 func main() {
-	c := &serial.Config{Name: "/dev/ttyUSB0", Baud: 9600, ReadTimeout: time.Millisecond * 500}
+	VersionFlag := flag.Bool("version", false, "prints commit hash for current build")
+	flag.Parse()
+
+	// TODO: set up glog with logDir value from the config 
+
+	if *VersionFlag {
+		fmt.Printf("%s\n", Version)
+		os.Exit(0)
+	}
+
+	c := &serial.Config{Name: viper.GetString("serialBMSPath"), Baud: viper.GetInt("serialBaud"), ReadTimeout: time.Millisecond * 500}
 	s, err := serial.OpenPort(c)
 	if err != nil {
 		log.Fatal(err)
@@ -46,9 +62,8 @@ func Execute(s *serial.Port, cmd string) (string, error) {
 			glog.Error(err)
 			return "", err
 		}
-		
+
 		output = output + string(buf[:n])
-		
 	}
 
 	return output, nil
