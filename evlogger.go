@@ -4,8 +4,6 @@ import (
 	"github.com/spf13/viper"
 	"flag"
 	"fmt"
-	"log"
-	"time"
 	"os"
 
 	"github.com/tarm/serial"
@@ -29,16 +27,13 @@ func main() {
 	c := &serial.Config{Name: viper.GetString("serialBMSPath"), Baud: viper.GetInt("serialBaud"), ReadTimeout: time.Millisecond * 500}
 	s, err := serial.OpenPort(c)
 	if err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 
 	out, err := Execute(s, "sh h")
 	if err != nil {
 		glog.Error(err)
 	}
-	
-	fmt.Print(out)
-
 }
 
 // Execute takes a pointer to a serial.Port and command string to execute, returns string and error
