@@ -4,13 +4,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/spf13/viper"
 
 	"github.com/golang/glog"
 	"github.com/tarm/serial"
-	//"github.com/golang/regex"
 )
 
 // Version holds the version and build commit hash, set at build time.
@@ -44,12 +44,31 @@ func main() {
 			}
 
 			fmt.Printf("%s", out)
+
+			paresedOutput := Parse(out, `(c\d{1,2}).{3}(\d.\d{3})`, "bms,cell=%s volts=%s\n") 
+			if err != nil {
+				glog.Error(err)
+
+			}
+
+			fmt.Printf("%s", paresedOutput)
 		}
 	}
 }
 
-func (o *string) Parse() (string, error) {
-	reCells := regex.MustCompile(`(c\d{1,2}).{3}(\d.\d{3})`)
+func Parse(input string, regex string, outputPattern string) string {
+	re := regexp.MustCompile(regex)
+
+	// `(c\d{1,2}).{3}(\d.\d{3})`\
+	r := re.FindAllString(input, -1)
+
+	glog.V(2).Infof("%v", r)
+	
+	parsedOutput := ""
+	for _, elem := range r{
+		parsedOutput += fmt.Sprintf(outputPattern, elem[1:])
+	}
+	return parsedOutput
 
 }
 
