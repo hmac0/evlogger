@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
@@ -19,6 +20,7 @@ var Version string
 func main() {
 	VersionFlag := flag.Bool("version", false, "prints commit hash for current build")
 	Cmd := flag.String("cmd", "help", "talk serial")
+	SerialDevice := flag.String("serial_device", "/dev/ttyUSB0", "the name of the tty device you want to talk to")
 	flag.Parse()
 
 	// TODO: set up glog with logDir value from the config
@@ -30,32 +32,29 @@ func main() {
 
 	if *Cmd != "" {
 
-		c := &serial.Config{Name: viper.GetString("serialEVCCPath"), Baud: viper.GetInt("serialBaud"), ReadTimeout: time.Millisecond * 500}
+		c := &serial.Config{Name: *SerialDevice, Baud: viper.GetInt("serialBaud"), ReadTimeout: time.Millisecond * 50}
 		s, err := serial.OpenPort(c)
 		if err != nil {
 			glog.Fatal(err)
 		}
 
-		for i := 0; i < 5; i++ {
-
-			out, err := Execute(s, *Cmd)
-			if err != nil {
-				glog.Error(err)
-			}
-
-			fmt.Printf("%s", out)
-
-			paresedOutput := Parse(out, `(c\d{1,2}).{3}(\d.\d{3})`, "bms,cell=%s volts=%s\n") 
-			if err != nil {
-				glog.Error(err)
-
-			}
-
-			fmt.Printf("%s", paresedOutput)
+		out, err := Execute(s, *Cmd)
+		if err != nil {
+			glog.Error(err)
 		}
+
+		glog.V(2).Infof("%s", out)
+
+		// paresedOutput := Parse(out, `(c\d{1,2}).{3}(\d.\d{3})`, "bms,cell=%s volts=%s\n")
+		// if err != nil {
+		// 	glog.Error(err)
+
+		// }
+		// glog.V(2).Infof("%s", paresedOutput)
 	}
 }
 
+// Parse
 func Parse(input string, regex string, outputPattern string) string {
 	re := regexp.MustCompile(regex)
 
@@ -63,9 +62,9 @@ func Parse(input string, regex string, outputPattern string) string {
 	r := re.FindAllString(input, -1)
 
 	glog.V(2).Infof("%v", r)
-	
+
 	parsedOutput := ""
-	for _, elem := range r{
+	for _, elem := range r {
 		parsedOutput += fmt.Sprintf(outputPattern, elem[1:])
 	}
 	return parsedOutput
@@ -74,30 +73,34 @@ func Parse(input string, regex string, outputPattern string) string {
 
 // Execute takes a pointer to a serial.Port and command string to execute, returns string and error
 func Execute(s *serial.Port, cmd string) (string, error) {
-	n, err := s.Write([]byte(fmt.Sprintf("%s\n", cmd)))
+	start := time.Now()
+	_, err := s.Write([]byte(fmt.Sprintf("%s\n", cmd)))
 	if err != nil {
 		glog.Error(err)
 		return "", err
 	}
 
-	buf := make([]byte, 4096)
-	output := ""
-
-	for {
-		// HACK: used magic number to detect end of output ("evcc> \n" > 8 bytes?)
-		n, err = s.Read(buf)
-		if n == 0 || n == 8 {
-			break
-		}
-
-		if err != nil {
-			glog.Error(err)
-			return "", err
-		}
-
-		output = output + string(buf[:n])
+	reader := bufio.NewReader(s)
+	buf, err := reader.ReadBytes('\x3E')
+	if err != nil {
+		panic(err)
 	}
+	//fmt.Println(reply)
 
-	return output, nil
+	// buf := make([]byte, 1024)
+	// output := ""
 
+	// for {
+	// 	n, _ = s.Read(buf)
+	// 	if n == 0 {
+	// 		break
+	// 	}
+	// 	glog.Infof("%+v", buf[:n])
+	// 	output = output + string(buf[:n])
+	// }
+
+	glog.V(2).Infof("execute took %d ms", (time.Since(start)).Nanoseconds()/1000000)
+
+	// NOTE: output is trimmed to exclude command and serial cli prompt output
+	return string(buf[len(cmd):]), nil
 }
