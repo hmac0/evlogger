@@ -50,7 +50,7 @@ func main() {
 		}
 
 		// encode command as byte array
-		bCMD := []byte(command)
+		bCMD := []byte(command + "\n")
 
 		go connect.Start()
 
