@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/golang/glog"
 	"bufio"
-	"fmt"
 	"io"
 	"time"
 
@@ -17,10 +17,11 @@ type Connect struct {
 	portReader *bufio.Reader
 	portChan   chan []byte
 	stateChan  chan error
+	lineChan   chan []byte
 }
 
 // NewConnection returns a pointer to a Connect instance
-func NewConnection(portPath string, baudRate int) (*Connect, error) {
+func NewConnection(portPath string, baudRate int, bufferLength int) (*Connect, error) {
 	config := serial.Config{Name: portPath, Baud: baudRate, ReadTimeout: time.Nanosecond}
 	port, err := serial.OpenPort(&config)
 	if err != nil {
@@ -28,9 +29,13 @@ func NewConnection(portPath string, baudRate int) (*Connect, error) {
 	}
 	portReader := bufio.NewReader(port)
 	stateChan := make(chan error)
-	return &Connect{config: &config, port: port,
+	lineChan := make(chan []byte, bufferLength)
+
+	return &Connect{config: &config, 
+		port: port,
 		portReader: portReader,
-		stateChan:  stateChan}, nil
+		stateChan:  stateChan,
+		lineChan:   lineChan}, nil
 }
 
 // Start initializes a read loop that attempts to reconnect
@@ -41,10 +46,10 @@ func (c *Connect) Start() {
 		select {
 		case err := <-c.stateChan:
 			if err != nil {
-				fmt.Printf("Error connecting to %s", c.config.Name)
+				glog.Infof("Error connecting to %s", c.config.Name)
 				go c.initialize()
 			} else {
-				fmt.Printf(" | Connection to %s reestablished!", c.config.Name)
+				glog.Infof(" | Connection to %s reestablished!", c.config.Name)
 				go c.read()
 			}
 		}
@@ -75,7 +80,7 @@ func (c *Connect) read() {
 			return
 		}
 		if len(response) > 0 {
-			fmt.Print(string(response))
+			c.lineChan <- response
 		}
 	}
 }
@@ -83,6 +88,6 @@ func (c *Connect) read() {
 func (c *Connect) Write(message []byte) {
 	_, err := c.port.Write(message)
 	if err != nil {
-		fmt.Printf("Error writing to serial port: %v ", err)
+		glog.Infof("Error writing to serial port: %v ", err)
 	}
 }
