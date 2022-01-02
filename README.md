@@ -1,2 +1,2 @@
-# evlogger
-## A tool for logging serial data over usb.
+# EV Logger
+A tool for logging data over a serial interface.

@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/golang/glog"
-	"github.com/spf13/viper"
 )
 func init() {
 	viper.SetConfigName("config") // name of config file (without extension)
